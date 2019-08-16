@@ -1,0 +1,6 @@
+name = Load field collection fields
+description = This module load the nodes, taxonomies and users with their field collection fields on your Drupal site. Developed and maintained by <a href="https://www.drupal.org/u/ergargkaran">Karan Garg</a>
+core = 7.x
+package = Fields
+dependencies[] = field_collection
+configure = admin/config/fields/load-field-collection-fields

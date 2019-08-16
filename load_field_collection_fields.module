@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * @file
+ * Field Collection Load module.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function load_field_collection_fields_menu() {
+  $items = array();
+  $items['admin/config/fields/load-field-collection-fields'] = array(
+    'title' => 'Field collection load fields',
+    'description' => 'Configuration of entities for loading field collection fields',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('load_field_collection_fields_form'),
+    'access arguments' => array('access administration pages'),
+    'file' => 'load_field_collection_fields.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_help().
+ */
+function load_field_collection_fields_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#load_field_collection_fields':
+      $output = '<h2>' . t('Field Collection Load') . '</h2>';
+      $output .= '<p>' . t('This module can be used to load field_collection fields when an entity is loaded.') . '</p>';
+      $output .= '<p>' . t('This module allows to load field collection fields when loading a node, taxonomy or user on your Drupal site.') . '</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_node_load().
+ */
+function load_field_collection_fields_node_load($nodes) {
+  $nid = key($nodes);
+  $node = $nodes[$nid];
+  $selected_bundles = variable_get('load_field_collection_fields_bundles');
+
+  if (isset($selected_bundles[$node->type]) && $selected_bundles[$node->type] == 1) {
+    $field_info = field_read_fields(
+      array(
+        'entity_type' => 'node',
+        'bundle' => $node->type,
+        'type' => 'field_collection',
+      )
+    );
+
+    foreach ($field_info as $field_column => $field) {
+      // Check field_collection fields.
+      if (isset($node->$field_column)) {
+        $node_field = $node->$field_column;
+
+        if (isset($node_field[LANGUAGE_NONE]) && is_array($node_field[LANGUAGE_NONE])) {
+          foreach ($node_field[LANGUAGE_NONE] as $field_key => $collection_field) {
+            // Load field_collection fields.
+            $collections = field_collection_item_load($collection_field['value']);
+            $collection_fields = array();
+
+            // Iterate over all member vars of FieldCollectionItemEntity object.
+            foreach ($collections as $col => $value) {
+              // Look for fields - there are some other class vars, too.
+              if (strpos($col, 'field') !== FALSE && isset($value[LANGUAGE_NONE][0]['value'])) {
+                  $collection_fields[$col] = $value;
+              }
+            }
+
+            $nodes[$nid]->$field_column[LANGUAGE_NONE][$field_key]['field_items'] = $collection_fields;
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_term_load().
+ */
+function load_field_collection_fields_taxonomy_term_load($terms) {
+  $tid = key($terms);
+  $term = $terms[$tid];
+  $term_vocabulary = $term->vocabulary_machine_name;
+  $selected_taxonomies = variable_get('load_field_collection_fields_taxonomies');
+
+  if (isset($selected_taxonomies[$term_vocabulary]) && $selected_taxonomies[$term_vocabulary] == 1) {
+    $field_info = field_read_fields(
+      array(
+        'entity_type' => 'taxonomy_term',
+        'type' => 'field_collection',
+      )
+    );
+
+    foreach ($field_info as $field_column => $field) {
+      if (isset($term->$field_column)) {
+        $term_field = $term->$field_column;
+
+        if (isset($term_field[LANGUAGE_NONE]) && is_array($term_field[LANGUAGE_NONE])) {
+          foreach ($term_field[LANGUAGE_NONE] as $field_key => $field_value) {
+            // Load field collection fields.
+            $collections = field_collection_item_load($field_value['value']);
+            $collection_fields = array();
+
+            // Iterate over all member vars of FieldCollectionItemEntity object.
+            foreach ($collections as $col => $value) {
+              // Look for fields - there are some other class vars, too.
+              if (strpos($col, 'field') !== FALSE && isset($value[LANGUAGE_NONE][0]['value'])) {
+                  $collection_fields[$col] = $value;
+              }
+            }
+
+            $terms[$tid]->$field_column[LANGUAGE_NONE][$field_key]['field_items'] = $collection_fields;
+
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_user_load().
+ */
+function load_field_collection_fields_user_load($users) {
+  $uid = key($users);
+  $user_entity = $users[$uid];
+
+  if (empty($user_entity->language)) {
+    $user_entity->language = LANGUAGE_NONE;
+  }
+
+  $form_data_users = variable_get('load_field_collection_fields_users');
+
+  if (isset($form_data_users['users']) && $form_data_users['users'] == 1) {
+    $field_info = field_read_fields(array('entity_type' => 'user', 'type' => 'field_collection'));
+
+    foreach ($field_info as $field_column => $field) {
+      if (isset($user_entity->$field_column)) {
+        $users_array = $user_entity->$field_column;
+
+        if (isset($users_array[LANGUAGE_NONE]) && is_array($users_array[LANGUAGE_NONE])) {
+          foreach ($users_array[LANGUAGE_NONE] as $field_key => $field_value) {
+            // Load field collection fields.
+            $collections = field_collection_item_load($field_value['value']);
+            $collection_fields = array();
+
+            foreach ($collections as $col => $value) {
+              // Look for fields - there are some other class vars, too.
+              if (strpos($col, 'field') !== FALSE && isset($value[LANGUAGE_NONE][0]['value'])) {
+                $collection_fields[$col] = $value;
+              }
+            }
+
+            $users[$uid]->$field_column[LANGUAGE_NONE][$field_key]['field_items'] = $collection_fields;
+          }
+        }
+      }
+    }
+  }
+}
